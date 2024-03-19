@@ -12,8 +12,8 @@ import chromedriver_binary
 from selenium.webdriver.chrome.options import Options
 import speech_recognition as sr
 
-CHUNK_SIZE = 10
-BATCH_SIZE = 2
+CHUNK_SIZE = 1000
+BATCH_SIZE = 100
 SUPPORTED_FILE_TYPES = ['.mp3', '.m4a', '.mp4']
 DOWNLOAD_DIRECTORY = './episode_audio/'
 HEADERS = {
@@ -57,7 +57,6 @@ class scraper:
             
             print("[METRICS] Skipped: ", self.SKIPPED)
             print("[METRICS] Downloaded: ", self.DOWNLOADED)
-            break 
         
     def get_audio_file(self, url, index):
         driver = webdriver.Chrome(options=chrome_options)
@@ -97,25 +96,32 @@ class scraper:
         with open(f'{file_name}.mp3', 'wb') as f:
             f.write(audio_file.content)
             f.close()
-
-        sound = AudioSegment.from_mp3(f'{file_name}.mp3')
-        sound.export(f'{file_name}.wav', format="wav")
+        try:
+            sound = AudioSegment.from_mp3(f'{file_name}.mp3')
+            sound.export(f'{file_name}.wav', format="wav")
+        except: 
+            print("Failed to convert to wav: ", file_name)
+            return 
         
-        # Try to transcribe audio URL to a text file                          
-        r = sr.Recognizer()
-        with sr.AudioFile(f'{file_name}.wav') as source:
-            print("transcribing")
-            audio = r.record(source)  # read the entire audio file 
+        # Try to transcribe audio URL to a text file    
+        try:                       
+            r = sr.Recognizer()
+            with sr.AudioFile(f'{file_name}.wav') as source:
+                print("transcribing")
+                audio = r.record(source)  # read the entire audio file 
+                
+                # CHANGE here for accuracy in exchange for speed
+                # tiny.en > base.en > small.en roughly tiny.en is supposed to be 2x faster than base.en
+                # but in my own test, base.en was slightly faster than tiny.en
+                # https://github.com/openai/whisper
+                transcription = r.recognize_whisper(audio, model="base.en") 
+                print("Transcription: " + transcription)
             
-            # CHANGE here for accuracy in exchange for speed
-            # tiny.en > base.en > small.en roughly tiny.en is supposed to be 2x faster than base.en
-            # but in my own test, base.en was slightly faster than tiny.en
-            # https://github.com/openai/whisper
-            transcription = r.recognize_whisper(audio, model="base.en") 
-            print("Transcription: " + transcription)
-        
-            with open(f'{DOWNLOAD_DIRECTORY}{file_name}.txt', 'wb') as f:
-                f.write(transcription)
+                with open(f'{DOWNLOAD_DIRECTORY}{file_name}.txt', 'wb') as f:
+                    f.write(transcription)
+        except: 
+            print("Failed to transcribe: ", file_name)
+            return
         
         # delete mp3 and wav files
         os.remove(f'{file_name}.mp3')
