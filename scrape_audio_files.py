@@ -7,11 +7,9 @@ import os
 import time
 import soundfile
 import psutil
-from pydub import AudioSegment
 import whisper
 import chromedriver_binary
 from selenium.webdriver.chrome.options import Options
-import speech_recognition as sr
 
 CHUNK_SIZE = 1000
 BATCH_SIZE = 50
@@ -97,14 +95,6 @@ class scraper:
         with open(f'{file_name}.mp3', 'wb') as f:
             f.write(audio_file.content)
             f.close()
-            
-        try:
-            sound = AudioSegment.from_mp3(f'{file_name}.mp3')
-            sound.export(f'{file_name}.wav', format="wav")
-        except: 
-            print("Failed to convert to wav: ", file_name)
-            os.remove(f'{file_name}.mp3')
-            return 
         
         # Try to transcribe audio URL to a text file    
         try:                       
@@ -121,9 +111,8 @@ class scraper:
             print("Failed to transcribe: ", file_name)
             
         
-        # delete mp3 and wav files
+        # delete mp3 files
         os.remove(f'{file_name}.mp3')
-        os.remove(f'{file_name}.wav')
         
         self.DOWNLOADED += 1
     
